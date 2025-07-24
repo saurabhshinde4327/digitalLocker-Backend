@@ -40,6 +40,9 @@ const userSchema = new mongoose.Schema({
   photoPath: { type: String },
   location: { type: String },
   ip: { type: String },
+  // Add fields for login attempt tracking
+  failedLoginAttempts: { type: Number, default: 0 },
+  lastFailedLogin: { type: Date },
 });
 
 userSchema.pre('save', async function (next) {

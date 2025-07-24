@@ -4,6 +4,8 @@ const ActivityLog = require('../models/activityLog');
 const axios = require('axios');
 const { sendAlertEmail } = require('../utils/emailUtils');
 
+require('dotenv').config();
+
 const getLocationFromIP = async (ip) => {
   // Handle localhost and IPv6 loopback
   if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') {
@@ -76,8 +78,23 @@ const login = async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      // Increment failed login attempts
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+      user.lastFailedLogin = new Date();
+      await user.save();
+      // Send alert email after 3 failed attempts
+      if (user.failedLoginAttempts === 3) {
+        sendAlertEmail(
+          'ALERT: 3 Failed Login Attempts',
+          `User ${user.email} (ID: ${user.studentId}) has failed to login 3 times consecutively as of ${user.lastFailedLogin.toLocaleString()} from IP: ${req.headers['x-forwarded-for'] || req.connection.remoteAddress}`
+        );
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Reset failed login attempts on successful login
+    user.failedLoginAttempts = 0;
+    user.lastFailedLogin = undefined;
 
     // Check login time (10am-5pm)
     const now = new Date();
